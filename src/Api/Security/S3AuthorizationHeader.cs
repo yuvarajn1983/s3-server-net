@@ -14,21 +14,30 @@ namespace Api.Security
 
         private S3AuthorizationHeader(string headerContents)
         {
-            var authStringComponents = headerContents.Split(' ');
-            if (authStringComponents.Length == 2)
+            var authStringComponents = headerContents.Split(new char[] { ',', ' ' });
+            HashAlgorithm = authStringComponents[0].Trim();
+            for(int i = 1; i < authStringComponents.Length; i++)
             {
-                HashAlgorithm = authStringComponents[0];
-                var creds = authStringComponents[1].Split(',');
-                if (creds.Length == 3)
+                string authComponent = authStringComponents[i].Trim();
+                if (authComponent.StartsWith("Credential=", StringComparison.OrdinalIgnoreCase))
                 {
-                    Credentials = new Credential(creds[0].Replace("Credential=", ""));
-                    var sh = creds[1].Replace("SignedHeaders=", "").Split(';').ToList();
+                    var creds = authComponent.Replace("Credential=", "").Split(',');
+                    if (creds.Length > 0)
+                    {
+                        Credentials = new Credential(creds[0]);
+                    }
+                }
+                else if (authComponent.StartsWith("SignedHeaders=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var sh = authComponent.Replace("SignedHeaders=", "").Split(';').ToList();
                     sh.Sort();
                     SignedHeaders = sh;
-                    Signature = creds[2].Replace("Signature=", "");
-                } 
+                }
+                else if(authComponent.StartsWith("Signature=", StringComparison.OrdinalIgnoreCase))
+                {
+                    Signature = authComponent.Replace("Signature=", "");
+                }
             }
-
         }
 
         public static S3AuthorizationHeader ParseHeader(string headerContents)
